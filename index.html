@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Official Torn Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #f0f0f0;
+            --accent-color: #3498db;
+            --success-color: #2ecc71;
+            --error-color: #e74c3c;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .key-input-box {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        input[type="password"] {
+            width: 60%;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #111;
+            color: #fff;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background-color: #2980b9; }
+        .error { color: var(--error-color); margin-top: 10px; display: none; }
+        .dashboard { display: none; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .card { background-color: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .card h3 { margin-top: 0; border-bottom: 2px solid #444; padding-bottom: 8px; color: var(--accent-color); }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95em; }
+        .stat-label { color: #aaa; }
+        .stat-value { font-weight: bold; }
+        .bar-container { background-color: #111; border-radius: 4px; height: 12px; width: 100%; margin-top: 4px; overflow: hidden; }
+        .bar { height: 100%; width: 0%; transition: width 0.5s ease; }
+        .energy-bar { background-color: var(--success-color); }
+        .nerve-bar { background-color: #e67e22; }
+        .life-bar { background-color: var(--error-color); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Torn City Player Dashboard</h1>
+    
+    <div class="key-input-box">
+        <label for="apiKey" style="display:block; margin-bottom: 8px;">Enter your Torn API Key:</label>
+        <input type="password" id="apiKey" placeholder="Paste your API key here..." autocomplete="off">
+        <button onclick="requestTornData()">Load Dashboard</button>
+        <div id="errorMessage" class="error"></div>
+    </div>
+
+    <div id="dashboard" class="dashboard">
+        <!-- Profile Overview -->
+        <div class="card">
+            <h3>Basic Profile</h3>
+            <div class="stat-row"><span class="stat-label">Name:</span><span class="stat-value" id="p-name">-</span></div>
+            <div class="stat-row"><span class="stat-label">Level:</span><span class="stat-value" id="p-level">-</span></div>
+            <div class="stat-row"><span class="stat-label">Rank:</span><span class="stat-value" id="p-rank">-</span></div>
+            <div class="stat-row"><span class="stat-label">Age:</span><span class="stat-value" id="p-age">-</span></div>
+            <div class="stat-row"><span class="stat-label">Status:</span><span class="stat-value" id="p-status">-</span></div>
+        </div>
+
+        <!-- Vitals Bars -->
+        <div class="card">
+            <h3>Vitals</h3>
+            <div>
+                <div class="stat-row"><span>Energy:</span><span id="v-energy">-</span></div>
+                <div class="bar-container"><div id="bar-energy" class="bar energy-bar"></div></div>
+            </div>
+            <div style="margin-top:12px;">
+                <div class="stat-row"><span>Nerve:</span><span id="v-nerve">-</span></div>
+                <div class="bar-container"><div id="bar-nerve" class="bar nerve-bar"></div></div>
+            </div>
+            <div style="margin-top:12px;">
+                <div class="stat-row"><span>Life:</span><span id="v-life">-</span></div>
+                <div class="bar-container"><div id="bar-life" class="bar life-bar"></div></div>
+            </div>
+        </div>
+
+        <!-- Financials Tracking -->
+        <div class="card">
+            <h3>Financials</h3>
+            <div class="stat-row"><span class="stat-label">Cash on Hand:</span><span class="stat-value" id="f-cash">-</span></div>
+            <div class="stat-row"><span class="stat-label">Points:</span><span class="stat-value" id="f-points">-</span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+function requestTornData() {
+    var key = document.getElementById('apiKey').value.trim();
+    var errorDiv = document.getElementById('errorMessage');
+    
+    if (!key) {
+        showError("Please enter an API key.");
+        return;
+    }
+    
+    errorDiv.style.display = "none";
+
+    // Adding &callback tells Torn to send the data instantly as a script tag, bypassing CORS rules safely
+    var targetUrl = "https://torn.com" + key + "&callback=renderDashboard";
+
+    // Remove any older script element if it exists
+    var activeScript = document.getElementById('torn-script-bridge');
+    if (activeScript) {
+        activeScript.parentNode.removeChild(activeScript);
+    }
+
+    // Creating a script tag directly goes straight to Torn's servers instantly
+    var script = document.createElement('script');
+    script.id = 'torn-script-bridge';
+    script.src = targetUrl;
+    script.async = true;
+    script.onerror = function() {
+        showError("Failed to reach Torn API. Your internet connection might be blocked or Torn is down.");
+    };
+    
+    document.head.appendChild(script);
+}
+
+// This function runs automatically the split second Torn responds
+window.renderDashboard = function(data) {
+    if (data.error) {
+        showError("API Error: " + data.error.error + " (Code " + data.error.code + ")");
+        return;
+    }
+
+    // Map out the fields
+    document.getElementById('p-name').innerText = (data.name || 'Unknown') + " [" + (data.player_id || '0') + "]";
+    document.getElementById('p-level').innerText = data.level || '0';
+    document.getElementById('p-rank').innerText = data.rank || 'N/A';
+    document.getElementById('p-age').innerText = (data.age || 0) + " days";
+    
+    if (data.status) {
+        document.getElementById('p-status').innerText = typeof data.status === 'object' ? data.status.description : data.status;
+    } else {
+        document.getElementById('p-status').innerText = "Okay";
+    }
+
+    // Build the health/vitals bars
+    updateStatBar('energy', data.energy);
+    updateStatBar('nerve', data.nerve);
+    updateStatBar('life', data.life);
+
+    // Show balances
+    document.getElementById('f-cash').innerText = '$' + (data.cash ? data.cash.toLocaleString() : '0');
+    document.getElementById('f-points').innerText = data.points ? data.points.toLocaleString() : '0';
+
+    // Make the dashboard visible
+    document.getElementById('dashboard').style.display = "grid";
+};
+
+function updateStatBar(barName, dataObj) {
+    if(!dataObj) return;
+    var current = dataObj.current || 0;
+    var max = dataObj.maximum || 100;
+    var percent = Math.min((current / max) * 100, 100);
+    
+    document.getElementById('v-' + barName).innerText = current + " / " + max;
+    document.getElementById('bar-' + barName).style.width = percent + "%";
+}
+
+function showError(msg) {
+    var errorDiv = document.getElementById('errorMessage');
+    errorDiv.innerText = msg;
+    errorDiv.style.display = "block";
+    document.getElementById('dashboard').style.display = "none";
+}
+</script>
+
+</body>
+</html>
